@@ -64,28 +64,38 @@ fn spawn_snake(mut commands : Commands)
         .insert(Size::square(0.8));
 }
 
-fn snake_movement(keyboard_input : Res<Input<KeyCode>>,
+fn snake_movement_input(keyboard_input : Res<Input<KeyCode>>,
                   mut exit : EventWriter<AppExit>,
-                  mut head_pos : Query<&mut Position, With<SnakeHead>>)
+                  mut head : Query<&mut SnakeHead>)
 {
-   for mut pos in head_pos.iter_mut(){
-        if keyboard_input.pressed(KeyCode::W){
-            pos.y += 1
+    if let Some(mut head) = head.iter_mut().next(){
+        if keyboard_input.pressed(KeyCode::W) {
+            head.direction = Direction::Up
         }
         else if keyboard_input.pressed(KeyCode::S) {
-            pos.y -= 1
+            head.direction = Direction::Down
         }
         else if keyboard_input.pressed(KeyCode::D) {
-            pos.x += 1
+            head.direction = Direction::Left
         }
         else if keyboard_input.pressed(KeyCode::A) {
-            pos.x -= 1
+            head.direction = Direction::Right
         }
-        if keyboard_input.pressed(KeyCode::Escape)
-        {
+        else if keyboard_input.pressed(KeyCode::Escape) {
             exit.send(AppExit)
         }
-   }
+    }
+}
+
+fn snake_movement(mut heads : Query<(&mut Position, &SnakeHead)>){
+   if let Some((mut head_pos, head)) = heads.iter_mut().next(){
+        match &head.direction {
+            Direction::Up => head_pos.y += 1, 
+            Direction::Down => head_pos.y -= 1,
+            Direction::Left => head_pos.x += 1,
+            Direction::Right => head_pos.x -= 1,
+        }
+    }
 }
 
 // Setup The Grid
@@ -168,10 +178,12 @@ fn main() {
         .add_startup_system(setup_window_settings)
         .add_startup_system(setup_camera)
         .add_startup_system(spawn_snake)
-        .add_systems((
-                snake_movement.run_if(on_timer(Duration::from_secs_f32(0.150))),
-                position_translation
-                ).chain())
+        .add_systems(
+            (
+                snake_movement_input,
+                snake_movement.run_if(on_timer(Duration::from_secs_f32(0.150)))
+            ).chain())
+        .add_system(position_translation)
         .add_system(food_spawner.run_if(on_timer(Duration::from_secs_f32(1.))))
         .add_system(size_scaling)
         .run();
