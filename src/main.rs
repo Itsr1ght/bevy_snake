@@ -1,4 +1,4 @@
-use bevy::{prelude::*, app::AppExit, window::PrimaryWindow};
+use bevy::{prelude::*, app::AppExit, window::PrimaryWindow, time::common_conditions::on_timer};
 use rand::random; 
 
 // Position and other component
@@ -20,8 +20,28 @@ impl Size {
     }
 }
 // Setup the Snake
+enum Direction {
+    Left,
+    Right,
+    Up,
+    Down
+}
+
+impl Direction {
+    fn opposite(self) -> Self {
+        match self {
+            Self::Up => Self::Down,
+            Self::Down => Self::Up,
+            Self::Left => Self::Right,
+            Self::Right => Self::Left
+        }
+    }
+}
 #[derive(Component)]
-struct SnakeHead;
+struct SnakeHead{
+    direction : Direction
+}
+
 
 const SNAKE_HEAD_COLOR : Color = Color::rgb(1.0, 0.0, 0.0);
 
@@ -39,7 +59,7 @@ fn spawn_snake(mut commands : Commands)
                 },
                 ..default()
             }
-        ).insert(SnakeHead)
+        ).insert(SnakeHead{ direction : Direction::Up  })
         .insert(Position{x: 3, y: 3})
         .insert(Size::square(0.8));
 }
@@ -141,6 +161,7 @@ fn setup_camera(mut commands : Commands){
 } 
 
 fn main() {
+    use std::time::Duration;
     App::new()
         .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
         .add_plugins(DefaultPlugins)
@@ -148,9 +169,10 @@ fn main() {
         .add_startup_system(setup_camera)
         .add_startup_system(spawn_snake)
         .add_systems((
-                snake_movement,
+                snake_movement.run_if(on_timer(Duration::from_secs_f32(0.150))),
                 position_translation
                 ).chain())
+        .add_system(food_spawner.run_if(on_timer(Duration::from_secs_f32(1.))))
         .add_system(size_scaling)
         .run();
 }
