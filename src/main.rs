@@ -1,4 +1,5 @@
-use bevy::{prelude::*, app::AppExit, window::PrimaryWindow}; 
+use bevy::{prelude::*, app::AppExit, window::PrimaryWindow};
+use rand::random; 
 
 // Position and other component
 #[derive(Component, Clone, Copy, PartialEq, Eq)]
@@ -98,7 +99,7 @@ fn position_translation(
         ) -> f32 {
             let tile_size = bound_game / bound_window;
             pos / bound_game * bound_window - (bound_window / 2f32) + (tile_size / 2f32)
-        }   
+    }   
     for (pos, mut transform) in q.iter_mut(){
         transform.translation = Vec3::new(
             convert(pos.x as f32, window.width() as f32, ARENA_WIDTH as f32),
@@ -107,7 +108,34 @@ fn position_translation(
     }
 }
 
+//Food
+#[derive(Component)]
+struct Food;
+
+fn food_spawner(mut commands: Commands){
+    commands.spawn(SpriteBundle{
+        sprite: Sprite {
+            color: Color::rgb(0., 1., 0.),
+            ..default()
+        },
+        ..default()
+    })
+    .insert(Food)
+    .insert(Position{
+        x : (random::<f32>() * ARENA_WIDTH as f32) as i32,
+        y : (random::<f32>() * ARENA_HEIGHT as f32) as i32,
+    })
+    .insert(Size::square(0.8));
+}
+
+
 // SetUp The Game
+fn setup_window_settings(mut windows: Query<&mut Window>){
+    for mut window in &mut windows {
+        window.title = "Snake".to_string();
+    }
+}
+
 fn setup_camera(mut commands : Commands){
     commands.spawn(Camera2dBundle::default());
 } 
@@ -116,6 +144,7 @@ fn main() {
     App::new()
         .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
         .add_plugins(DefaultPlugins)
+        .add_startup_system(setup_window_settings)
         .add_startup_system(setup_camera)
         .add_startup_system(spawn_snake)
         .add_systems((
