@@ -93,6 +93,7 @@ fn snake_movement_input(keyboard_input : Res<Input<KeyCode>>,
 
 fn snake_movement(
     segment : ResMut<SnakeTails>,
+    mut last_tail_position: ResMut<LastTailPosition>,
     mut heads : Query<(Entity , &SnakeHead)>,
     mut positions: Query<&mut Position>
     ){
@@ -100,6 +101,7 @@ fn snake_movement(
        let segment_positions = segment.iter()
            .map(|e| *positions.get_mut(*e).unwrap())
            .collect::<Vec<Position>>();
+       *last_tail_position = LastTailPosition(Some(*segment_positions.last().unwrap()));
        let mut head_pos = positions.get_mut(head_entity).unwrap();
         match &head.direction {
             Direction::Up => head_pos.y += 1, 
@@ -116,12 +118,30 @@ fn snake_movement(
     }
 }
 
+fn snake_eating(
+    mut commands: Commands,
+    mut growth_writer: EventWriter<GrowthEvent>,
+    food_positions: Query<(Entity, &Position), With<Food>>,
+    head_positions: Query<&Position, With<SnakeHead>>){
+    for head_pos in head_positions.iter(){
+        for (ent, food_pos) in food_positions.iter(){
+            if head_pos == food_pos {
+                commands.entity(ent).despawn();
+                growth_writer.send(GrowthEvent);
+            }
+        }
+    }
+}
+
 //Snake Tail
 #[derive(Component)]
 struct SnakeTail;
 
 #[derive(Default, Deref, DerefMut, Resource)]
 struct SnakeTails(Vec<Entity>);
+
+#[derive(Default, Resource)]
+struct LastTailPosition(Option<Position>);
 
 fn spawn_segment(
     mut commands : Commands,
@@ -186,6 +206,8 @@ fn position_translation(
 #[derive(Component)]
 struct Food;
 
+struct GrowthEvent;
+
 fn food_spawner(mut commands: Commands){
     commands.spawn(SpriteBundle{
         sprite: Sprite {
@@ -219,6 +241,8 @@ fn main() {
     App::new()
         .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
         .insert_resource(SnakeTails::default())
+        .insert_resource(LastTailPosition::default())
+        .add_event::<GrowthEvent>()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_window_settings)
         .add_startup_system(setup_camera)
@@ -228,6 +252,7 @@ fn main() {
                 snake_movement_input,
                 snake_movement.run_if(on_timer(Duration::from_secs_f32(0.150)))
             ).chain())
+        .add_system(snake_eating.after(snake_movement))
         .add_system(position_translation)
         .add_system(food_spawner.run_if(on_timer(Duration::from_secs_f32(1.))))
         .add_system(size_scaling)
