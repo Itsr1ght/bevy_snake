@@ -1,5 +1,4 @@
-use bevy::{prelude::*, app::AppExit}; 
-use bevy::window::PrimaryWindow;
+use bevy::{prelude::*, app::AppExit, window::PrimaryWindow}; 
 
 // Position and other component
 #[derive(Component, Clone, Copy, PartialEq, Eq)]
