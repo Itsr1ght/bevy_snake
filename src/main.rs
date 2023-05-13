@@ -20,6 +20,7 @@ impl Size {
     }
 }
 // Setup the Snake
+#[derive(PartialEq, Clone, Copy)]
 enum Direction {
     Left,
     Right,
@@ -73,20 +74,27 @@ fn snake_movement_input(keyboard_input : Res<Input<KeyCode>>,
                   mut head : Query<&mut SnakeHead>)
 {
     if let Some(mut head) = head.iter_mut().next(){
-        if keyboard_input.pressed(KeyCode::W) {
-            head.direction = Direction::Up
+        let dir = if keyboard_input.pressed(KeyCode::W) {
+            Direction::Up
         }
         else if keyboard_input.pressed(KeyCode::S) {
-            head.direction = Direction::Down
+            Direction::Down
         }
         else if keyboard_input.pressed(KeyCode::D) {
-            head.direction = Direction::Left
+            Direction::Left
         }
         else if keyboard_input.pressed(KeyCode::A) {
-            head.direction = Direction::Right
+            Direction::Right
         }
         else if keyboard_input.pressed(KeyCode::Escape) {
-            exit.send(AppExit)
+            exit.send(AppExit);
+            head.direction 
+        }
+        else {
+            head.direction
+        };
+        if dir != head.direction.opposite() {
+            head.direction = dir;
         }
     }
 }
@@ -95,6 +103,7 @@ fn snake_movement(
     segment : ResMut<SnakeTails>,
     mut last_tail_position: ResMut<LastTailPosition>,
     mut heads : Query<(Entity , &SnakeHead)>,
+    mut game_over_writer: EventWriter<GameOverEvent>,
     mut positions: Query<&mut Position>
     ){
    if let Some((head_entity, head)) = heads.iter_mut().next(){
@@ -103,6 +112,9 @@ fn snake_movement(
            .collect::<Vec<Position>>();
        *last_tail_position = LastTailPosition(Some(*segment_positions.last().unwrap()));
        let mut head_pos = positions.get_mut(head_entity).unwrap();
+       if head_pos.x < 0 || head_pos.y < 0 || head_pos.x as u32 >= ARENA_WIDTH || head_pos.y as u32 >= ARENA_HEIGHT{
+            game_over_writer.send(GameOverEvent);
+       }
         match &head.direction {
             Direction::Up => head_pos.y += 1, 
             Direction::Down => head_pos.y -= 1,
@@ -130,6 +142,17 @@ fn snake_eating(
                 growth_writer.send(GrowthEvent);
             }
         }
+    }
+}
+
+fn snake_growth(
+    commands : Commands,
+    last_tail_position: Res<LastTailPosition>,
+    mut segements: ResMut<SnakeTails>,
+    mut growth_reader: EventReader<GrowthEvent>
+    ){
+    if growth_reader.iter().next().is_some(){
+        segements.push(spawn_segment(commands, last_tail_position.0.unwrap()))
     }
 }
 
@@ -224,11 +247,29 @@ fn food_spawner(mut commands: Commands){
     .insert(Size::square(0.8));
 }
 
+//GameOver Event
+struct GameOverEvent;
+
+fn game_over(
+    mut commands : Commands,
+    mut reader: EventReader<GameOverEvent>,
+    segements: ResMut<SnakeTails>,
+    food: Query<Entity, With<Food>>,
+    segments: Query<Entity, With<SnakeTail>>
+    ) {
+    if reader.iter().next().is_some(){
+        for ent in food.iter().chain(segments.iter()) {
+            commands.entity(ent).despawn();
+        }
+        spawn_snake(commands, segements);
+    }
+}
 
 // SetUp The Game
 fn setup_window_settings(mut windows: Query<&mut Window>){
     for mut window in &mut windows {
         window.title = "Snake".to_string();
+        //window.resolution.set(500., 500.);
     }
 }
 
@@ -243,6 +284,7 @@ fn main() {
         .insert_resource(SnakeTails::default())
         .insert_resource(LastTailPosition::default())
         .add_event::<GrowthEvent>()
+        .add_event::<GameOverEvent>()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_window_settings)
         .add_startup_system(setup_camera)
@@ -253,8 +295,10 @@ fn main() {
                 snake_movement.run_if(on_timer(Duration::from_secs_f32(0.150)))
             ).chain())
         .add_system(snake_eating.after(snake_movement))
+        .add_system(snake_growth.after(snake_eating))
         .add_system(position_translation)
         .add_system(food_spawner.run_if(on_timer(Duration::from_secs_f32(1.))))
         .add_system(size_scaling)
+        .add_system(game_over.after(snake_movement))
         .run();
 }
