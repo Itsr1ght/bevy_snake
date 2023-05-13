@@ -45,23 +45,27 @@ struct SnakeHead{
 
 const SNAKE_HEAD_COLOR : Color = Color::rgb(1.0, 0.0, 0.0);
 
-fn spawn_snake(mut commands : Commands)
+fn spawn_snake(
+    mut commands : Commands,
+    mut segments: ResMut<SnakeTails>)
 {
-    commands.spawn(
-            SpriteBundle{
-                sprite:Sprite{
+    *segments = SnakeTails(vec![
+        commands.spawn(SpriteBundle {
+                sprite: Sprite {
                     color: SNAKE_HEAD_COLOR,
                     ..default()
                 },
-                transform: Transform{
-                    scale: Vec3::new(10.0, 10.0, 10.0),
-                    ..default()
-                },
                 ..default()
-            }
-        ).insert(SnakeHead{ direction : Direction::Up  })
-        .insert(Position{x: 3, y: 3})
-        .insert(Size::square(0.8));
+            })
+            .insert(SnakeHead {
+                direction: Direction::Up,
+            })
+            .insert(SnakeTail)
+            .insert(Position { x: 3, y: 3 })
+            .insert(Size::square(0.8))
+            .id(),
+        spawn_segment(commands, Position { x: 3, y: 3 }),
+    ]);
 }
 
 fn snake_movement_input(keyboard_input : Res<Input<KeyCode>>,
@@ -87,15 +91,55 @@ fn snake_movement_input(keyboard_input : Res<Input<KeyCode>>,
     }
 }
 
-fn snake_movement(mut heads : Query<(&mut Position, &SnakeHead)>){
-   if let Some((mut head_pos, head)) = heads.iter_mut().next(){
+fn snake_movement(
+    segment : ResMut<SnakeTails>,
+    mut heads : Query<(Entity , &SnakeHead)>,
+    mut positions: Query<&mut Position>
+    ){
+   if let Some((head_entity, head)) = heads.iter_mut().next(){
+       let segment_positions = segment.iter()
+           .map(|e| *positions.get_mut(*e).unwrap())
+           .collect::<Vec<Position>>();
+       let mut head_pos = positions.get_mut(head_entity).unwrap();
         match &head.direction {
             Direction::Up => head_pos.y += 1, 
             Direction::Down => head_pos.y -= 1,
             Direction::Left => head_pos.x += 1,
             Direction::Right => head_pos.x -= 1,
         }
+        segment_positions
+            .iter()
+            .zip(segment.iter().skip(1))
+            .for_each(|(pos, segment)| {
+                *positions.get_mut(*segment).unwrap() = *pos; 
+            });
     }
+}
+
+//Snake Tail
+#[derive(Component)]
+struct SnakeTail;
+
+#[derive(Default, Deref, DerefMut, Resource)]
+struct SnakeTails(Vec<Entity>);
+
+fn spawn_segment(
+    mut commands : Commands,
+    position : Position
+    ) -> Entity
+{
+   commands.spawn(
+            SpriteBundle{
+                sprite: Sprite { color: Color::rgb(0., 0., 0.5),
+                ..default()
+                },
+            ..default()
+            }
+       )
+       .insert(SnakeTail)
+       .insert(position)
+       .insert(Size::square(0.5))
+       .id()
 }
 
 // Setup The Grid
@@ -174,6 +218,7 @@ fn main() {
     use std::time::Duration;
     App::new()
         .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
+        .insert_resource(SnakeTails::default())
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_window_settings)
         .add_startup_system(setup_camera)
