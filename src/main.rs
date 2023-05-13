@@ -1,5 +1,4 @@
-use bevy::{prelude::*, app::AppExit}; 
-use bevy::window::PrimaryWindow;
+use bevy::{prelude::*, app::AppExit, window::PrimaryWindow}; 
 
 // Position and other component
 #[derive(Component, Clone, Copy, PartialEq, Eq)]
@@ -41,26 +40,25 @@ fn spawn_snake(mut commands : Commands)
             }
         ).insert(SnakeHead)
         .insert(Position{x: 3, y: 3})
-        .insert(Size::square(0.8))
-        ;
+        .insert(Size::square(0.8));
 }
 
 fn snake_movement(keyboard_input : Res<Input<KeyCode>>,
                   mut exit : EventWriter<AppExit>,
-                  mut head_pos : Query<(&SnakeHead, &mut Transform)>)
+                  mut head_pos : Query<&mut Position, With<SnakeHead>>)
 {
-   for (_head, mut tranform) in head_pos.iter_mut(){
+   for mut pos in head_pos.iter_mut(){
         if keyboard_input.pressed(KeyCode::W){
-            tranform.translation.y += 1f32;
+            pos.y += 1
         }
         else if keyboard_input.pressed(KeyCode::S) {
-            tranform.translation.y -= 1f32;
+            pos.y -= 1
         }
         else if keyboard_input.pressed(KeyCode::D) {
-            tranform.translation.x += 1f32;
+            pos.x += 1
         }
         else if keyboard_input.pressed(KeyCode::A) {
-            tranform.translation.x -= 1f32;
+            pos.x -= 1
         }
         if keyboard_input.pressed(KeyCode::Escape)
         {
@@ -88,6 +86,27 @@ fn size_scaling(
         }
     }
 
+fn position_translation(
+        window_query: Query<&Window, With<PrimaryWindow>>,
+        mut q: Query<(&Position, &mut Transform)>
+    ){
+    let window = window_query.get_single().unwrap();
+    fn convert(
+            pos: f32,
+            bound_window: f32,
+            bound_game: f32
+        ) -> f32 {
+            let tile_size = bound_game / bound_window;
+            pos / bound_game * bound_window - (bound_window / 2f32) + (tile_size / 2f32)
+        }   
+    for (pos, mut transform) in q.iter_mut(){
+        transform.translation = Vec3::new(
+            convert(pos.x as f32, window.width() as f32, ARENA_WIDTH as f32),
+            convert(pos.y as f32, window.height() as f32, ARENA_HEIGHT as f32),
+            0.0);
+    }
+}
+
 // SetUp The Game
 fn setup_camera(mut commands : Commands){
     commands.spawn(Camera2dBundle::default());
@@ -95,10 +114,14 @@ fn setup_camera(mut commands : Commands){
 
 fn main() {
     App::new()
+        .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_camera)
         .add_startup_system(spawn_snake)
-        .add_system(snake_movement)
+        .add_systems((
+                snake_movement,
+                position_translation
+                ).chain())
         .add_system(size_scaling)
         .run();
 }
