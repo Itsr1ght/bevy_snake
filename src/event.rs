@@ -1,12 +1,21 @@
 use bevy::prelude::*;
-use crate::snake::{SnakeTails, SnakeTail,spawn_snake};
+use crate::snake::{SnakeTails, SnakeTail,spawn_snake, snake_movement};
 use crate::food::Food;
 
 pub struct GrowthEvent;
 
 pub struct GameOverEvent;
 
-pub fn game_over(
+pub struct EventPlugin;
+
+impl Plugin for EventPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_event::<GrowthEvent>().add_event::<GameOverEvent>()
+            .add_system(game_over.after(snake_movement));
+    }
+}
+
+fn game_over(
     mut commands : Commands,
     mut reader: EventReader<GameOverEvent>,
     segements: ResMut<SnakeTails>,

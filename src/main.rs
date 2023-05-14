@@ -6,9 +6,9 @@ mod utils;
 mod food;
 
 use crate::game::*;
-use crate::event::*;
+use crate::event::EventPlugin;
 use crate::snake::*;
-use crate::food::*;
+use crate::food::FoodPlugin;
 use crate::grid::*;
 
 use bevy::{DefaultPlugins,
@@ -23,9 +23,9 @@ fn main() {
         .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
         .insert_resource(SnakeTails::default())
         .insert_resource(LastTailPosition::default())
-        .add_event::<GrowthEvent>()
-        .add_event::<GameOverEvent>()
         .add_plugins(DefaultPlugins)
+        .add_plugin(EventPlugin)
+        .add_plugin(FoodPlugin)
         .add_startup_system(setup_window_settings)
         .add_startup_system(setup_camera)
         .add_startup_system(spawn_snake)
@@ -37,8 +37,6 @@ fn main() {
         .add_system(snake_eating.after(snake_movement))
         .add_system(snake_growth.after(snake_eating))
         .add_system(position_translation)
-        .add_system(food_spawner.run_if(on_timer(Duration::from_secs_f32(1.))))
         .add_system(size_scaling)
-        .add_system(game_over.after(snake_movement))
         .run();
 }
