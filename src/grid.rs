@@ -1,12 +1,12 @@
 use crate::utils::*;
 use bevy::window::{Window, PrimaryWindow};
-use bevy::prelude::{Query, Vec3, With, Transform};
+use bevy::prelude::{Query, Vec3, With, Transform, Plugin, App};
 
 
 pub const ARENA_WIDTH: u32 = 10;
 pub const ARENA_HEIGHT: u32 = 10;
 
-pub fn size_scaling(
+fn size_scaling(
         window_query: Query<&Window, With<PrimaryWindow>>,
         mut q: Query<(&Size, &mut Transform )>
     )
@@ -20,7 +20,7 @@ pub fn size_scaling(
         }
     }
 
-pub fn position_translation(
+fn position_translation(
         window_query: Query<&Window, With<PrimaryWindow>>,
         mut q: Query<(&Position, &mut Transform)>
     ){
@@ -38,5 +38,14 @@ pub fn position_translation(
             convert(pos.x as f32, window.width() as f32, ARENA_WIDTH as f32),
             convert(pos.y as f32, window.height() as f32, ARENA_HEIGHT as f32),
             0.0);
+    }
+}
+
+pub struct GridPlugin;
+
+impl Plugin for GridPlugin {
+    fn build(&self, app: &mut App){
+        app.add_system(position_translation)
+        .add_system(size_scaling);
     }
 }

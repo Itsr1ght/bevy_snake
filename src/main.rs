@@ -5,38 +5,26 @@ mod grid;
 mod utils;
 mod food;
 
-use crate::game::*;
+use crate::game::GamePlugin;
 use crate::event::EventPlugin;
-use crate::snake::*;
+use crate::snake::SnakePlugin;
 use crate::food::FoodPlugin;
-use crate::grid::*;
+use crate::grid::GridPlugin;
 
-use bevy::{DefaultPlugins,
-            prelude::*,
-            time::common_conditions::on_timer            
+use bevy::{
+    DefaultPlugins,
+    prelude::*
 };
 
 
 fn main() {
-    use std::time::Duration;
     App::new()
         .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
-        .insert_resource(SnakeTails::default())
-        .insert_resource(LastTailPosition::default())
         .add_plugins(DefaultPlugins)
         .add_plugin(EventPlugin)
+        .add_plugin(GridPlugin)
         .add_plugin(FoodPlugin)
-        .add_startup_system(setup_window_settings)
-        .add_startup_system(setup_camera)
-        .add_startup_system(spawn_snake)
-        .add_systems(
-            (
-                snake_movement_input,
-                snake_movement.run_if(on_timer(Duration::from_secs_f32(0.150)))
-            ).chain())
-        .add_system(snake_eating.after(snake_movement))
-        .add_system(snake_growth.after(snake_eating))
-        .add_system(position_translation)
-        .add_system(size_scaling)
+        .add_plugin(GamePlugin)
+        .add_plugin(SnakePlugin)
         .run();
 }

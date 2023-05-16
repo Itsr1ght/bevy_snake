@@ -1,25 +1,8 @@
 use crate::utils::{Size, Position};
-use bevy::{prelude::{
-            Commands,
-            Component,
-            Deref,
-            DerefMut,
-            Resource,
-            Color,
-            SpriteBundle,
-            Sprite,
-            EventReader,
-            EventWriter,
-            With,
-            Entity,
-            Query,
-            KeyCode,
-            Input,
-            Res,
-            ResMut,
-            default,
-          
-        }, app::AppExit};
+use bevy::app::AppExit;
+use bevy::prelude::*;
+use bevy::time::common_conditions::on_timer;
+use std::time::Duration;
 use crate::food::Food;
 use crate::grid::{ARENA_HEIGHT, ARENA_WIDTH};
 use crate::event::{GrowthEvent, GameOverEvent};
@@ -73,7 +56,7 @@ pub fn spawn_snake(
     ]);
 }
 
-pub fn snake_movement_input(keyboard_input : Res<Input<KeyCode>>,
+fn snake_movement_input(keyboard_input : Res<Input<KeyCode>>,
                   mut exit : EventWriter<AppExit>,
                   mut head : Query<&mut SnakeHead>)
 {
@@ -134,7 +117,7 @@ pub fn snake_movement(
     }
 }
 
-pub fn snake_eating(
+fn snake_eating(
     mut commands: Commands,
     mut growth_writer: EventWriter<GrowthEvent>,
     food_positions: Query<(Entity, &Position), With<Food>>,
@@ -187,4 +170,24 @@ pub fn spawn_segment(
        .insert(position)
        .insert(Size::square(0.5))
        .id()
+}
+
+
+pub struct SnakePlugin;
+
+impl Plugin for SnakePlugin {
+    fn build(&self, app: &mut App)
+    {
+        app.insert_resource(SnakeTails::default())
+        .insert_resource(LastTailPosition::default())
+        .add_startup_system(spawn_snake)
+        .add_systems(
+            (
+                snake_movement_input,
+                snake_movement.run_if(on_timer(Duration::from_secs_f32(0.150)))
+            ).chain())
+        .add_system(snake_eating.after(snake_movement))
+        .add_system(snake_growth.after(snake_eating))
+        .add_startup_system(spawn_snake);
+    }
 }
