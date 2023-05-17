@@ -3,7 +3,7 @@ use bevy::prelude::*;
 fn setup_window_settings(mut windows: Query<&mut Window>){
     for mut window in &mut windows {
         window.title = "Snake".to_string();
-        //window.resolution.set(500., 500.);
+        window.resolution.set(500., 500.);
     }
 }
 
